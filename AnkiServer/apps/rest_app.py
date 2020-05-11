@@ -380,6 +380,9 @@ class CollectionHandler(RestHandlerBase):
         else:
             model = col.models.get(req.data['model'])
 
+        # Workaround to set the did for cards
+        # This is fixed in later versions of ankilib
+        model['did'] = int(req.data['did'])
         note = Note(col, model)
         for name, value in req.data['fields'].items():
             note[name] = value
@@ -447,6 +450,20 @@ class CollectionHandler(RestHandlerBase):
         col.sched.reset()
 
         return deck
+
+    def create_deck(self, col, req):
+        # Get name from req
+        name = req.data.get('name', '')
+        if name is '':
+            raise HTTPBadRequest("Empty name not allowed")
+
+        existing_names = col.decks.allNames()
+        if name in existing_names:
+            raise HTTPBadRequest("Name already exists")
+
+        deck_id = col.decks.id(name)
+        col.decks.flush()
+        return {"id": deck_id}
 
     def empty_dynamic_deck(self, col, req):
         name = req.data.get('name', t('Custom Study Session'))
@@ -977,3 +994,19 @@ def make_app(global_conf, **local_conf):
         allowed_hosts=local_conf.get('allowed_hosts', '*')
     )
 
+
+
+# Running standalone from Paste deploy
+#from wsgiref.simple_server import make_server
+#from AnkiServer.collection import CollectionManager
+#import tempfile
+
+#def application(env, start_response):
+#    temp_dir = "collections"
+#    collection_manager = CollectionManager()
+#    rest_app = RestApp(temp_dir, collection_manager=collection_manager)
+#    wsgresp = rest_app(env, start_response)
+#    return wsgresp
+
+#httpd = make_server('localhost', 8051, application)
+#httpd.serve_forever()
